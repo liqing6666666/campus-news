@@ -37,7 +37,12 @@ def get_campus_news(category: str = "民大要闻", page: int = 1, limit: int = 
         return _err(f"未知分类: {category}，可选: {list(NEWS_CATEGORIES.keys())}")
 
     limit = min(limit, 20)
-    url = f"{DEFAULT_BASE}/xww/{column_code}/{page}.htm"
+    # column homepage (no page number) = latest news
+    # /{code}/{n}.htm = paginated (1=oldest, max=newest)
+    if page <= 1:
+        url = f"{DEFAULT_BASE}/xww/{column_code}.htm"
+    else:
+        url = f"{DEFAULT_BASE}/xww/{column_code}/{page}.htm"
     try:
         items = fetch_list_page(url, limit)
         return _ok({
