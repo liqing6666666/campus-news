@@ -62,7 +62,7 @@ campus-news
 | get_department_news | 获取教务处/学工在线资讯 | `department` (可选), `page`, `limit` | 部门资讯列表：标题、日期、URL |
 | get_article_detail | 获取文章全文内容 | `url` (必填) | 文章标题、日期、正文、来源 |
 | list_colleges | 列出所有可用学院 | 无 | 22 个学院名称及站点代码 |
-| list_departments | 列出所有可用部门 | 无 | 3 个部门名称及站点代码 |
+| list_departments | 列出所有可用部门 | 无 | 2 个部门名称及站点代码 |
 
 ## 5. 数据覆盖
 
