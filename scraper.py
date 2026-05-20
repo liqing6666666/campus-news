@@ -79,12 +79,24 @@ def _extract_date(el) -> str:
     if m:
         return m.group(1).replace("年", "-").replace("月", "-").replace("日", "")
     # "5月13日" or "5 月13日" format (may have spaces)
+    # DD concatenated with YYYY-MM (e.g. "192026-05" = day 19 + 2026-05)
+    m = re.search(r"(\d{1,2})(\d{4}[-/\.]\d{1,2})(?![-/\.]\d)", text)
+    if m:
+        return f"{m.group(2).replace('/', '-')}-{int(m.group(1)):02d}"
+    m = re.search(r"(\d{4}[-/\.]\d{1,2})(?![-/\.]\d)", text)
+    if m:
+        return m.group(1).replace("/", "-")
     m = re.search(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
     if m:
         return f"{int(m.group(1)):02d}-{int(m.group(2)):02d}"
     m = re.search(r"(\d{1,2}[-/\.]\d{1,2})", text)
     if m:
-        return m.group(1).replace("/", "-")
+        d = m.group(1).replace("/", "-")
+        # Normalize YY-MM to 20YY-MM (e.g. "26-05" → "2026-05")
+        parts = d.split("-")
+        if len(parts) == 2 and len(parts[0]) == 2 and 20 <= int(parts[0]) <= 99:
+            d = f"20{parts[0]}-{parts[1]}"
+        return d
     return ""
 
 
@@ -170,7 +182,7 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
             url = _resolve_url(href, base_url)
             existing = next((d for d in items if d["url"] == url), None)
             if existing:
-                if date and not existing.get("date"):
+                if date and (not existing.get("date") or len(date) > len(existing.get("date", ""))):
                     existing["date"] = date
                     if title and len(title) > len(existing.get("title", "")):
                         existing["title"] = title
@@ -217,7 +229,7 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
             url = _resolve_url(href, base_url)
             existing = next((d for d in items if d["url"] == url), None)
             if existing:
-                if date and not existing.get("date"):
+                if date and (not existing.get("date") or len(date) > len(existing.get("date", ""))):
                     existing["date"] = date
                     if title and len(title) > len(existing.get("title", "")):
                         existing["title"] = title
@@ -250,7 +262,7 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
             url = _resolve_url(href, base_url)
             existing = next((d for d in items if d["url"] == url), None)
             if existing:
-                if date and not existing.get("date"):
+                if date and (not existing.get("date") or len(date) > len(existing.get("date", ""))):
                     existing["date"] = date
                     if title and len(title) > len(existing.get("title", "")):
                         existing["title"] = title
@@ -276,7 +288,7 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
             url = _resolve_url(href, base_url)
             existing = next((d for d in items if d["url"] == url), None)
             if existing:
-                if date and not existing.get("date"):
+                if date and (not existing.get("date") or len(date) > len(existing.get("date", ""))):
                     existing["date"] = date
             else:
                 items.append({"title": title, "date": date, "url": url})
@@ -297,21 +309,24 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
                     if not title or len(title) < 2:
                         continue
                     parent = a.find_parent("li") or a.find_parent("div")
-                    # Try raw text first (most specific), then parent
+                    # Try raw text first, then <a> children, then parent
                     date = _extract_date(raw)
-                    if not date and parent:
-                        for ds in ("span.date", "span.time", "span.data", "span.info", "em", "i", "span"):
-                            d = parent.select_one(ds)
-                            if d:
-                                date = _extract_date(d)
-                                if date:
-                                    break
+                    if not date:
+                        for scope in (a, parent):
+                            if not scope or date:
+                                break
+                            for ds in ("div.date", "div.time", "span.date", "span.time", "span.data", "span.info", "em", "i", "span"):
+                                d = scope.select_one(ds)
+                                if d:
+                                    date = _extract_date(d)
+                                    if date:
+                                        break
                     if not date and parent:
                         date = _extract_date(parent)
                     url = _resolve_url(href, base_url)
                     existing = next((d for d in items if d["url"] == url), None)
                     if existing:
-                        if date and not existing.get("date"):
+                        if date and (not existing.get("date") or len(date) > len(existing.get("date", ""))):
                             existing["date"] = date
                             if title and len(title) > len(existing.get("title", "")):
                                 existing["title"] = title
