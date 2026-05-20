@@ -87,10 +87,10 @@ def get_college_news(college: str, page: int = 1, limit: int = 10) -> str:
 
 @mcp.tool()
 def get_department_news(department: str = "教务处", page: int = 1, limit: int = 10) -> str:
-    """获取中南民族大学教务处、学工在线、图书馆最新资讯。
+    """获取中南民族大学教务处、学工在线最新资讯。
 
     Args:
-        department: 部门名称：教务处 / 学工在线 / 图书馆
+        department: 部门名称：教务处 / 学工在线
         page: 页码
         limit: 每页条数，最大20
     """

@@ -8,7 +8,7 @@
 |------|------|
 | `get_campus_news` | 获取学校主站新闻（民大要闻/南湖快讯/媒体民大） |
 | `get_college_news` | 获取各学院最新资讯 |
-| `get_department_news` | 获取教务处、学工在线、图书馆资讯 |
+| `get_department_news` | 获取教务处、学工在线最新资讯 |
 | `get_article_detail` | 获取文章全文内容 |
 | `list_colleges` | 列出所有可用学院 |
 | `list_departments` | 列出所有可用部门 |
