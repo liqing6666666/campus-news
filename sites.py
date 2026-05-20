@@ -46,6 +46,9 @@ CUSTOM_BASE: dict[str, str] = {
 # 非标准列表页 URL（index.htm 不含新闻，需指定其他页面）
 CUSTOM_LIST_URL: dict[str, str] = {
     "syxy": "https://www.scuec.edu.cn/syxy/lmy-tzgg.jsp?urltype=tree.TreeTempUrl&wbtreeid=1297",
+    "wyxy": "https://www.scuec.edu.cn/wyxy/index/xyxw.htm",
+    "jyxy": "https://www.scuec.edu.cn/jyxy/xyxw.htm",
+    "gttyjy": "https://www.scuec.edu.cn/gttyjy/xwdt.htm",
 }
 
 DEFAULT_BASE = "https://www.scuec.edu.cn"

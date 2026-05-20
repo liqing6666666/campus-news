@@ -336,15 +336,23 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
             existing = next((d for d in items if d["url"] == url), None)
             if existing:
                 if not existing.get("date"):
-                    parent = a.find_parent("li") or a.find_parent("div")
-                    date = _extract_date(parent) if parent else ""
+                    parent = a.find_parent("li") or a.find_parent("td") or a.find_parent("tr") or a.find_parent("div")
+                    date = ""
+                    el = parent
+                    while el and el.name != "body" and not date:
+                        date = _extract_date(el)
+                        el = el.parent
                     if not date:
                         date = _extract_date(raw)
                     if date:
                         existing["date"] = date
                 continue
             parent = a.find_parent("li") or a.find_parent("td") or a.find_parent("tr") or a.find_parent("div")
-            date = _extract_date(parent) if parent else ""
+            date = ""
+            el = parent
+            while el and el.name != "body" and not date:
+                date = _extract_date(el)
+                el = el.parent
             if not date:
                 date = _extract_date(raw)
             items.append({"title": title, "date": date, "url": url})
