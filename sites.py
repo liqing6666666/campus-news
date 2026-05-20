@@ -28,7 +28,6 @@ COLLEGES: dict[str, str] = {
 DEPARTMENTS: dict[str, str] = {
     "教务处": "jwc",
     "学工在线": "stu",
-    "图书馆": "lib",
 }
 
 NEWS_CATEGORIES: dict[str, str] = {
@@ -40,7 +39,6 @@ NEWS_CATEGORIES: dict[str, str] = {
 # 独立子域名的站点，不使用 www.scuec.edu.cn/{code} 模式
 CUSTOM_BASE: dict[str, str] = {
     "dxxy": "https://dxxy.scuec.edu.cn",
-    "lib": "https://www.lib.scuec.edu.cn",
 }
 
 # 非标准列表页 URL（index.htm 不含新闻，需指定其他页面）
@@ -120,7 +118,6 @@ def search_department(name: str) -> str | None:
     keywords = {
         "教务": "jwc",
         "学工": "stu", "学生工作": "stu", "学工在线": "stu",
-        "图书": "lib", "图书馆": "lib",
     }
     for kw, code in keywords.items():
         if kw in name_lower:
