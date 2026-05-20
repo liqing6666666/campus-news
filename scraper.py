@@ -61,17 +61,30 @@ def _resolve_url(href: str, base_url: str) -> str:
 
 
 def _extract_date(el) -> str:
-    """Try to find a date near the element."""
-    text = el.get_text(strip=True) if el else ""
+    """Try to find a date in an element or string."""
+    if el is None:
+        return ""
+    if isinstance(el, str):
+        text = el.strip()
+    else:
+        text = el.get_text(strip=True)
+    # [2026-05-19] bracket format
+    m = re.search(r"\[(\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2})\]", text)
+    if m:
+        return m.group(1).replace("/", "-")
     m = re.search(r"(\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2})", text)
     if m:
-        return m.group(1)
+        return m.group(1).replace("/", "-")
     m = re.search(r"(\d{4}年\d{1,2}月\d{1,2}日)", text)
     if m:
-        return m.group(1)
+        return m.group(1).replace("年", "-").replace("月", "-").replace("日", "")
+    # "5月13日" or "5 月13日" format (may have spaces)
+    m = re.search(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
+    if m:
+        return f"{int(m.group(1)):02d}-{int(m.group(2)):02d}"
     m = re.search(r"(\d{1,2}[-/\.]\d{1,2})", text)
     if m:
-        return m.group(1)
+        return m.group(1).replace("/", "-")
     return ""
 
 
@@ -150,12 +163,18 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
                 continue
             date_el = li.select_one(
                 "div.date4, div.date3, div.date2, div.date, "
-                "span.date, span.time, span.info-right, span.fr, "
+                "span.date, span.time, span.data, span.info-right, span.fr, "
                 "em, i, font"
             )
             date = _extract_date(date_el) if date_el else ""
             url = _resolve_url(href, base_url)
-            if not any(d["url"] == url for d in items):
+            existing = next((d for d in items if d["url"] == url), None)
+            if existing:
+                if date and not existing.get("date"):
+                    existing["date"] = date
+                    if title and len(title) > len(existing.get("title", "")):
+                        existing["title"] = title
+            else:
                 items.append({"title": title, "date": date, "url": url})
 
     # Pattern 2: 教务处 (jwc) — div.news_1 > a > span (title) + span (date)
@@ -181,34 +200,125 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
                 if not any(d["url"] == url for d in items):
                     items.append({"title": title, "date": date, "url": url})
 
+    # Pattern 2b: Article list with span.title + span.data (clean data, prefer first)
+    if len(items) < limit:
+        for a in soup.select("div.article-list a.title-box[href*='info']"):
+            if len(items) >= limit:
+                break
+            href = a.get("href", "")
+            if not href:
+                continue
+            title_span = a.select_one("span.title")
+            title = _clean_title(title_span.get_text(strip=True)) if title_span else _clean_title(a.get_text(strip=True))
+            if not title or len(title) < 2:
+                continue
+            date_span = a.select_one("span.data")
+            date = _extract_date(date_span) if date_span else ""
+            url = _resolve_url(href, base_url)
+            existing = next((d for d in items if d["url"] == url), None)
+            if existing:
+                if date and not existing.get("date"):
+                    existing["date"] = date
+                    if title and len(title) > len(existing.get("title", "")):
+                        existing["title"] = title
+            else:
+                items.append({"title": title, "date": date, "url": url})
+
+    # Pattern 2c: Swiper carousel (jky, etc.) — div.swiper-slide, dates in p.title-sub
+    if len(items) < limit:
+        for slide in soup.select("div.swiper-slide"):
+            if len(items) >= limit:
+                break
+            a = slide.select_one("a[href*='info']")
+            if not a:
+                continue
+            href = a.get("href", "")
+            if not href:
+                continue
+            title_top = slide.select_one("p.title-top")
+            title = _clean_title(title_top.get_text(strip=True)) if title_top else ""
+            if not title:
+                title = _clean_title(a.get("title", "") or a.get_text(strip=True))
+            if not title or len(title) < 2:
+                continue
+            date_el = slide.select_one("span.data")
+            date = _extract_date(date_el) if date_el else ""
+            if not date:
+                title_sub = slide.select_one("p.title-sub")
+                if title_sub:
+                    date = _extract_date(title_sub)
+            url = _resolve_url(href, base_url)
+            existing = next((d for d in items if d["url"] == url), None)
+            if existing:
+                if date and not existing.get("date"):
+                    existing["date"] = date
+                    if title and len(title) > len(existing.get("title", "")):
+                        existing["title"] = title
+            else:
+                items.append({"title": title, "date": date, "url": url})
+
+    # Pattern 2d: Table rows (yjsy, etc.) — tr > td > a, date in tr text
+    if len(items) < limit:
+        for tr in soup.select("tr"):
+            if len(items) >= limit:
+                break
+            a = tr.select_one("a[href*='info']")
+            if not a:
+                continue
+            href = a.get("href", "")
+            if not href:
+                continue
+            raw = a.get("title", "") or a.get_text(strip=True)
+            title = _clean_title(raw)
+            if not title or len(title) < 2:
+                continue
+            date = _extract_date(tr)
+            url = _resolve_url(href, base_url)
+            existing = next((d for d in items if d["url"] == url), None)
+            if existing:
+                if date and not existing.get("date"):
+                    existing["date"] = date
+            else:
+                items.append({"title": title, "date": date, "url": url})
+
     # Pattern 3: Generic — any a[href*=info] in list-like containers
     if len(items) < limit:
         for sel in ("ul.list", "div.list", "div.news-list", "div.right-list",
                      "div.list-right", "div.content", "div.main-con", "div.con"):
-            container = soup.select_one(sel)
-            if not container:
-                continue
-            for a in container.select("a[href*='info']"):
+            for container in soup.select(sel):
+                for a in container.select("a[href*='info']"):
+                    if len(items) >= limit:
+                        break
+                    href = a.get("href", "")
+                    if not href:
+                        continue
+                    raw = a.get("title", "") or a.get_text(strip=True)
+                    title = _clean_title(raw)
+                    if not title or len(title) < 2:
+                        continue
+                    parent = a.find_parent("li") or a.find_parent("div")
+                    # Try raw text first (most specific), then parent
+                    date = _extract_date(raw)
+                    if not date and parent:
+                        for ds in ("span.date", "span.time", "span.data", "span.info", "em", "i", "span"):
+                            d = parent.select_one(ds)
+                            if d:
+                                date = _extract_date(d)
+                                if date:
+                                    break
+                    if not date and parent:
+                        date = _extract_date(parent)
+                    url = _resolve_url(href, base_url)
+                    existing = next((d for d in items if d["url"] == url), None)
+                    if existing:
+                        if date and not existing.get("date"):
+                            existing["date"] = date
+                            if title and len(title) > len(existing.get("title", "")):
+                                existing["title"] = title
+                    else:
+                        items.append({"title": title, "date": date, "url": url})
                 if len(items) >= limit:
                     break
-                href = a.get("href", "")
-                if not href:
-                    continue
-                title = _clean_title(a.get("title", "") or a.get_text(strip=True))
-                if not title or len(title) < 2:
-                    continue
-                parent = a.find_parent("li") or a.find_parent("div")
-                date = ""
-                if parent:
-                    for ds in ("span.date", "span.time", "span.info", "em", "i"):
-                        d = parent.select_one(ds)
-                        if d:
-                            date = _extract_date(d)
-                            if date:
-                                break
-                url = _resolve_url(href, base_url)
-                if not any(d["url"] == url for d in items):
-                    items.append({"title": title, "date": date, "url": url})
 
     # Pattern 4: Loose fallback — any a[href*=info] anywhere
     if len(items) < limit:
@@ -218,14 +328,25 @@ def _extract_list_items(soup: BeautifulSoup, base_url: str, limit: int) -> list[
             href = a.get("href", "")
             if not href:
                 continue
-            title = _clean_title(a.get("title", "") or a.get_text(strip=True))
+            raw = a.get("title", "") or a.get_text(strip=True)
+            title = _clean_title(raw)
             if not title or len(title) < 5:
                 continue
             url = _resolve_url(href, base_url)
-            if any(d["url"] == url for d in items):
+            existing = next((d for d in items if d["url"] == url), None)
+            if existing:
+                if not existing.get("date"):
+                    parent = a.find_parent("li") or a.find_parent("div")
+                    date = _extract_date(parent) if parent else ""
+                    if not date:
+                        date = _extract_date(raw)
+                    if date:
+                        existing["date"] = date
                 continue
-            parent = a.find_parent("li") or a.find_parent("div")
+            parent = a.find_parent("li") or a.find_parent("td") or a.find_parent("tr") or a.find_parent("div")
             date = _extract_date(parent) if parent else ""
+            if not date:
+                date = _extract_date(raw)
             items.append({"title": title, "date": date, "url": url})
 
     return items

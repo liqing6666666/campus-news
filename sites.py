@@ -43,6 +43,11 @@ CUSTOM_BASE: dict[str, str] = {
     "lib": "https://www.lib.scuec.edu.cn",
 }
 
+# 非标准列表页 URL（index.htm 不含新闻，需指定其他页面）
+CUSTOM_LIST_URL: dict[str, str] = {
+    "syxy": "https://www.scuec.edu.cn/syxy/lmy-tzgg.jsp?urltype=tree.TreeTempUrl&wbtreeid=1297",
+}
+
 DEFAULT_BASE = "https://www.scuec.edu.cn"
 
 
@@ -51,6 +56,8 @@ def get_base_url(site_code: str) -> str:
 
 
 def get_site_url(site_code: str, path: str = "") -> str:
+    if site_code in CUSTOM_LIST_URL and path == "index.htm":
+        return CUSTOM_LIST_URL[site_code]
     base = get_base_url(site_code)
     is_subdomain = site_code in CUSTOM_BASE
     if is_subdomain:
